@@ -154,15 +154,15 @@ class PenawaranC extends ResourceController
         $tujuan_pinjam=$this->userM->read($baca_data[0]->ktp_borrower);
         $asal_tawaran=$this->userM->read($baca_data[0]->ktp_lender);
         if($edit_tawaran){
-            $tanggal=date_create(date('Y-m-d H:i:s'));
-            $hari=$this->pdt->parse_day($tanggal->format("D"));
-            $bulan=$this->pdt->parse_month($tanggal->format("M"));
-            $waktu=$hari." ".$tanggal->format('d')." ".$bulan." ".$tanggal->format("Y")." ".$tanggal->format("H").":".$tanggal->format("i");
-            $this->se->tujuan=$asal_tawaran[0]->email;
-            $this->se->subject="informasi Tawaran Pinjaman";
-            $this->se->body="Salam, pada hari $waktu, Saudara/i bernama ".$tujuan_pinjam[0]->nama." telah menerima tawaran pinjaman dari anda
-            dan telah mengirimkan permohonan pinjaman berdasarkan tawaran yang sudah anda berikan sebelumnya, terimakasih atas perhatiannya";
-            $this->se->send();
+            // $tanggal=date_create(date('Y-m-d H:i:s'));
+            // $hari=$this->pdt->parse_day($tanggal->format("D"));
+            // $bulan=$this->pdt->parse_month($tanggal->format("M"));
+            // $waktu=$hari." ".$tanggal->format('d')." ".$bulan." ".$tanggal->format("Y")." ".$tanggal->format("H").":".$tanggal->format("i");
+            // $this->se->tujuan=$asal_tawaran[0]->email;
+            // $this->se->subject="informasi Tawaran Pinjaman";
+            // $this->se->body="Salam, pada hari $waktu, Saudara/i bernama ".$tujuan_pinjam[0]->nama." telah menerima tawaran pinjaman dari anda
+            // dan telah mengirimkan permohonan pinjaman berdasarkan tawaran yang sudah anda berikan sebelumnya, terimakasih atas perhatiannya";
+            // $this->se->send();
             return $this->respond(["pesan"=>"Tawaran anda diterima oleh peminjam"],200);
         }
         else{

@@ -42,7 +42,7 @@ class penawaranM{
         return $this->db->query($q)->getResult();
     }
     public function read_one($d){
-        $q="SELECT penawaran.*, user.email AS email_lender FROM ".$this->table_name." INNER JOIN user ON user.ktp=penawaran.ktp_lender WHERE id_penawaran=?";
+        $q="SELECT penawaran.*, user.email AS email_lender, user.nama as nama_lender FROM ".$this->table_name." INNER JOIN user ON user.ktp=penawaran.ktp_lender WHERE id_penawaran=?";
         return $this->db->query($q,$d)->getResult();
     }
 } 

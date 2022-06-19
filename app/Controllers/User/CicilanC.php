@@ -3,6 +3,7 @@
 namespace App\Controllers\User;
 use App\Models\userM;
 use App\Models\cicilanM;
+use App\Models\permohonanM;
 use App\Models\transaksiM;
 use App\Libraries\Parse_date_time;
 use App\Libraries\Send_email;
@@ -27,92 +28,136 @@ class CicilanC extends ResourceController
     {
         echo ":)";
     }
+    public function Bayar_cicilan()
+    {
+        $data_valid=\Config\Services::validation();
+        $data_valid->setRules([
+            "id_cicilan"=>[
+                "rules"=>"required",
+                "errors"=>[
+                    "required"=>"Masukkan Data Cicilan"
+                ]
+            ],
+            "jml_bayar"=>[
+                "rules"=>"required",
+                "errors"=>[
+                    "required"=>"Masukkan jumlah bayaran"
+                ]
+            ]
+        ]);
+        $cek_valid=$data_valid->withRequest($this->request)->run();
+        if($cek_valid){
+            $read_data_cicilan=$this->cicilanM->read_one($this->request->getPost('id_cicilan'));
+            $bisa_bayar_cicilan=true;
+            if($read_data_cicilan[0]->cicilan_ke>1){
+                $read_cicilan_sebelumnya=$this->cicilanM->read_cicilan_ke([$read_data_cicilan[0]->id_transaksi,($read_data_cicilan[0]->cicilan_ke-1)]);
+                if($read_cicilan_sebelumnya[0]->status==0){
+                    $bisa_bayar_cicilan=false;
+                    return $this->respond(["message"=>"Lunasi cicilan sebelumnya"],502);
+                }
+            }
+            if($bisa_bayar_cicilan==true){
+                $jumlah_bayar=$read_data_cicilan[0]->jml_bayar;
+                $bukti_transfer="";
+                if(isset($_FILES["bukti_transfer"])){
+                    $tipe_file=explode(".",$_FILES["bukti_transfer"]['name'])[1];
+                    $bukti_transfer="BT-".strtotime(date("Y-m-d h:i:s")).".".$tipe_file;
+                    move_uploaded_file($_FILES['bukti_transfer']['tmp_name'],"uploads/Cicilan/".$bukti_transfer);
+                }
+                $data=[
+                    date("Y-m-d H:i:s"),
+                    $this->request->getPost('jml_bayar')+$jumlah_bayar,
+                    $bukti_transfer,
+                    $this->request->getPost('keterangan'),
+                    $this->request->getPost('id_cicilan')
+                ];
+                $update_cicilan=$this->cicilanM->update_cicilan($data);
+                if($update_cicilan){
+                    return $this->respond(["message"=>"Sukses"],200);
+                }
+                else{
+                    return $this->respond(["message"=>"Gagal"],502);
+                }
+            
+            }
+        }
+        else{            
+            return $this->respond(["message"=>$data_valid->getErrors()],502);
+        }
+    }
     public function Konfirmasi_cicilan($d){
-        $konfirm=$this->cicilanM->konfirmasi_cicilan($d);
-        if($konfirm){
-            return $this->respond(["pesan"=>"Konfirmasi berhasil"],200);
+        $data_cicilan=$this->cicilanM->read_one($d);
+        $data_transaksi=$this->cicilanM->read_transaksi($data_cicilan[0]->id_transaksi);
+        $uang_cicil=$data_cicilan[0]->jml_bayar;
+        for($i=$data_cicilan[0]->cicilan_ke-1;$i<count($data_transaksi);$i++){
+            if($data_transaksi[$i]->status!=2){                
+                if($data_transaksi[$i]->jml_angsuran<=$uang_cicil){
+                    $this->cicilanM->Konfirmasi_cicilan($data_transaksi[$i]->id_cicilan);
+                    $this->cicilanM->update_jml_bayar([$data_transaksi[$i]->jml_angsuran,$data_transaksi[$i]->id_cicilan]);
+                    $uang_cicil=$uang_cicil-$data_transaksi[$i]->jml_angsuran;
+                }
+                else{
+                    if($i==$data_cicilan[0]->cicilan_ke-1){
+                        $this->cicilanM->Konfirmasi_cicilan($data_transaksi[$i]->id_cicilan);
+                        $uang_cicil=0;
+                    }
+                    else{                        
+                        $data_transaksi[$i]->jml_bayar=$uang_cicil; 
+                        $this->cicilanM->update_jml_bayar([$uang_cicil,$data_transaksi[$i]->id_cicilan]);
+                        $uang_cicil=0;
+                    }
+                }
+            }  
+            else{
+                break;
+            }  
         }
-        else{
-            return $this->respond(["pesan"=>"Konfirmasi Gagal"],502);
-        }
+        return $this->respond(["pesan"=>"Cicilan sudah dikonfirmasi"],200);
     }
     public function Kirim_cicilan()
     {
-        $valid=\Config\Services::validation();
-        $valid->setRules([
-            "id_transaksi"=>[
-                "rules"=>"required",
-                "errors"=>[
-                    "required"=>"isi data transaksi"
-                    ]
-                ],
-            "jml_angsuran"=>[
-                "rules"=>"required",
-                "errors"=>[
-                    "required"=>"isi jumlah angsuran"
-                    ]
-                ], 
-            "keterangan"=>[
-                "rules"=>"required",
-                "errors"=>[
-                    "required"=>"isi Keterangan"
-                    ]
-                ],            
-            "bukti_transfer"=>[
-                "rules"=>"uploaded[bukti_transfer]|mime_in[bukti_transfer,image/jpg,image/jpeg,image/png]|max_size[bukti_transfer,5020]",
-                "errors"=>[
-                    "uploaded"=>"Mohon Lampirkan Bukti Transfer",
-                    "mime_in"=>"Format gambar harus jpg,jpeg,atau png",
-                    "max_size"=>"Ukuran maksimum 5mb"
-                ]
-            ],
-        ]);
-        $data_valid=$valid->withRequest($this->request)->run();
-        if($data_valid){
-            $tanggal=date('Y-m-d H:i:s');
-            $namafile=strtotime(date("Y-m-d h:i:s"));
-            $nama_file="BT_".$namafile.".".explode(".",$_FILES['bukti_transfer']['name'])[1];
-            $data=[
-                $this->gr->ranstring(10),
-                $this->request->getPost('id_transaksi'),
-                $tanggal,
-                $this->request->getPost('jml_angsuran'),
-                $nama_file,
-                $this->request->getPost('keterangan'),
-                "0"
-            ];
-                $simpan=$this->cicilanM->create($data);
-                if($simpan){
-                    $tanggal=date_create($tanggal);
-                    $hari=$this->pdt->parse_day($tanggal->format("D"));
-                    $bulan=$this->pdt->parse_month($tanggal->format("M"));
-                    $waktu=$hari." ".$tanggal->format('d')." ".$bulan." ".$tanggal->format("Y")." ".$tanggal->format("H").":".$tanggal->format("i");
-                    move_uploaded_file($_FILES['bukti_transfer']['tmp_name'],"uploads/Cicilan/".$nama_file);  
-                    // $borower=$this->userM->read($this->cicilanM->read_one([$this->request->getPost('id_cicilan')])[0]->ktp_borrower); 
-                    // $lender=$this->userM->read($this->cicilanM->read_one([$this->request->getPost('id_cicilan')])[0]->ktp_lender); 
-                    // $this->se->tujuan=$borower[0]->email;
-                    // $this->se->subject="Informasi lanjutan mengenai peminjaman";
-                    // $this->se->body="Salam Bapak / Ibu, pada tanggal $waktu , saudara/i ".$lender[0]->nama." telah mengirimkan uang pinjaman ke rekening yang dituju, untuk selanjutnya anda bisa memeriksa bukti pinjaman di aplikasi utangin.com, terimakasih atas perhatiannya";
-                    // $kirim_email=$this->se->send();
-                    // if($kirim_email){
-                    //     return $this->respond(["pesan"=>"Transaksi berhasil"],200);
-                    // }
-                    // else{
-                    //     return $this->respond(["pesan"=>"Terjadi Kesalahan1"],502);
-                    // }
-                    return $this->respond(["pesan"=>"Transaksi berhasil"],200);
-                    
+        $daftar_cicilan=$this->cicilanM->read_transaksi($this->request->getPost('id_transaksi'));
+        $bayar=$this->request->getPost('jml_bayar');
+        for($i=0;$i<count($daftar_cicilan);$i++){
+            if($daftar_cicilan[$i]->jml_angsuran>0){
+                if($bayar<=$daftar_cicilan[$i]->jml_angsuran){
+                    $daftar_cicilan[$i]->jml_angsuran=$daftar_cicilan[$i]->jml_angsuran-$bayar;
+                    $bayar=0;
                 }
                 else{
-                    return $this->respond(["pesan"=>"terjadi kesalahan2"],502);
+                    $bayar=$bayar-$daftar_cicilan[$i]->jml_angsuran;
+                    $daftar_cicilan[$i]->jml_angsuran=0;
                 }
+            }
+        }
+        return $this->respond($daftar_cicilan,200);
+    }
+    
+    public function cariIdTransaksi($a)
+    {
+        $data=$this->transaksiM->seekId($a);
+        return $this->respond($data,200);
+    }
 
-            
+    public function Daftar_cicilan()
+    {
+        $daftar_cicilan=$this->cicilanM->read_transaksi($this->request->getPost('id_transaksi'));
+        for($i=0;$i<count($daftar_cicilan);$i++) {
+            if(($daftar_cicilan[$i]->jml_bayar>0)&&($daftar_cicilan[$i]->status==0)) {
+                $daftar_cicilan[$i]->status="1";
+            }
         }
-        else{
-            return $this->respond(["pesan"=>$valid->getErrors()],502);
-        }
-        
+        return $this->respond($daftar_cicilan,200);
+    }
+
+    public function Detail_cicilan($d) {
+        $data=$this->cicilanM->detail_cicilan($d);
+        return $this->respond($data,200);
+    }
+
+    public function Detail_cicilan_lender($d) {
+        $data=$this->cicilanM->detail_cicilan_lender($d);
+        return $this->respond($data,200);
     }
     
 }

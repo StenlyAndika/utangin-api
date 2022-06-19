@@ -40,49 +40,55 @@ $routes->get('/', 'Home::index');
 // $routes->post('/User','Test\UserC::Create');
 
 $routes->group("No_login",function($rute){
-    $rute->post("Sign_up","No_login\UserC::Sign_up");
-    $rute->post("Login","No_login\UserC::Login");
-    $rute->get("Cek_email","No_login\UserC::Cek_email");
-    $rute->get("Cek_ktp","No_login\UserC::Cek_ktp");
-    $rute->post('Kirim_otp','No_login\UserC::Kirim_otp');
+    $rute->post("Sign_up","No_login\UserC::Sign_up"); //ok
+    $rute->post("Login","No_login\UserC::Login"); //ok
+    $rute->get("Cek_email","No_login\UserC::Cek_email"); //ok
+    $rute->get("Cek_ktp","No_login\UserC::Cek_ktp"); //ok
+    $rute->post('Kirim_otp','No_login\UserC::Kirim_otp'); //ok
     $rute->get("/","No_login\UserC::index");
 });
 $routes->group("User",function($rute){
-    $rute->get("Logout/(:alphanum)","No_login\UserC::Logout/$1");
+    $rute->get("Logout/(:alphanum)","No_login\UserC::Logout/$1"); //ok
     $rute->get("Cek_login/(:alphanum)","No_login\UserC::Cek_login/$1");
     $rute->group("Rekening",function($rute_2){
-        $rute_2->post("Tambah","User\RekeningC::Tambah");
-        $rute_2->get("Baca_ktp/(:alphanum)","User\RekeningC::Baca_ktp/$1");
+        $rute_2->post("Tambah","User\RekeningC::Tambah"); //ok
+        $rute_2->get("Baca_ktp/(:alphanum)","User\RekeningC::Baca_ktp/$1"); //ok
         $rute_2->post("Ubah/(:alphanum)","User\RekeningC::Ubah/$1");
-        $rute_2->get("Hapus/(:alphanum)","User\RekeningC::Hapus/$1");
+        $rute_2->get("Hapus/(:alphanum)","User\RekeningC::Hapus/$1"); //ok
     });
     $rute->group("Permohonan",function($rute_2){
-        $rute_2->post("Kirim_revisi_permohonan","User\PermohonanC::Kirim_revisi_permohonan");  
-        $rute_2->post("Kirim_permohonan","User\PermohonanC::Kirim_permohonan");
-        $rute_2->get("Permohonan_dari_saya/(:alphanum)","User\PermohonanC::Permohonan_dari_saya/$1");
-        $rute_2->get("Permohonan_kepada_saya/(:alphanum)","User\PermohonanC::Permohonan_kepada_saya/$1");
-        $rute_2->get("Detail_permohonan/(:alphanum)","User\PermohonanC::Detail_permohonan/$1");
-        $rute_2->post("ACC_lender/(:alphanum)","User\PermohonanC::ACC_lender/$1");
-        $rute_2->post("ACC_borrower/(:alphanum)","User\PermohonanC::ACC_borrower/$1");
+        $rute_2->post("Kirim_revisi_permohonan","User\PermohonanC::Kirim_revisi_permohonan"); //ok
+        $rute_2->post("Kirim_permohonan","User\PermohonanC::Kirim_permohonan"); //ok
+        $rute_2->get("Permohonan_dari_saya/(:alphanum)","User\PermohonanC::Permohonan_dari_saya/$1"); //ok
+        $rute_2->get("Permohonan_kepada_saya/(:alphanum)","User\PermohonanC::Permohonan_kepada_saya/$1"); //ok
+        $rute_2->get("Detail_permohonan/(:alphanum)","User\PermohonanC::Detail_permohonan/$1"); //ok
+        $rute_2->post("ACC_lender/(:alphanum)","User\PermohonanC::ACC_lender/$1"); //ok
+        $rute_2->post("ACC_borrower/(:alphanum)","User\PermohonanC::ACC_borrower/$1"); //ok
     });
     $rute->group("Transaksi",function($rute_2){
-        $rute_2->post("Konfirmasi_pinjaman","User\TransaksiC::Konfirmasi_pinjaman");
+        $rute_2->post("Konfirmasi_pinjaman","User\TransaksiC::Konfirmasi_pinjaman"); //ok
         $rute_2->get("Jumlah_hutang_berjalan/(:alphanum)","User\TransaksiC::Jumlah_hutang_berjalan/$1");
+        $rute_2->get("Jumlah_piutang_berjalan/(:alphanum)","User\TransaksiC::Jumlah_piutang_berjalan/$1");
     });
     $rute->group("Cicilan",function($rute_2){
+        $rute_2->get("cariIdTransaksi/(:alphanum)","User\CicilanC::cariIdTransaksi/$1"); //ok
+        $rute_2->post("Daftar_cicilan","User\CicilanC::Daftar_cicilan"); //ok
+        $rute_2->get("Detail_cicilan/(:alphanum)","User\CicilanC::Detail_cicilan/$1"); //ok
+        $rute_2->get("Detail_cicilan_lender/(:alphanum)","User\CicilanC::Detail_cicilan_lender/$1"); //ok
         $rute_2->post("Kirim_cicilan","User\CicilanC::Kirim_cicilan");
-        $rute_2->get("Konfirmasi_cicilan/(:alphanum)","User\CicilanC::Konfirmasi_cicilan/$1");      
+        $rute_2->post("Bayar_cicilan","User\CicilanC::Bayar_cicilan"); //ok
+        $rute_2->get("Konfirmasi_cicilan/(:alphanum)","User\CicilanC::Konfirmasi_cicilan/$1");     
     });
     $rute->group("Penawaran",function($rute_2){
-        $rute_2->post("Kirim_tawaran","User\PenawaranC::Kirim_tawaran");
+        $rute_2->post("Kirim_tawaran","User\PenawaranC::Kirim_tawaran"); //ok
         $rute_2->get("Tawaran_dari_saya/(:alphanum)","User\PenawaranC::Tawaran_dari_saya/$1");
-        $rute_2->get("Tawaran_diterima/(:alphanum)","User\PenawaranC::Tawaran_diterima/$1");
-        $rute_2->get("Tawaran_kepada_saya/(:alphanum)","User\PenawaranC::Tawaran_kepada_saya/$1");
-        $rute_2->get("Detail_tawaran/(:alphanum)","User\PenawaranC::Detail_tawaran/$1");
+        $rute_2->get("Tawaran_diterima/(:alphanum)","User\PenawaranC::Tawaran_diterima/$1"); //ok
+        $rute_2->get("Tawaran_kepada_saya/(:alphanum)","User\PenawaranC::Tawaran_kepada_saya/$1"); //ok
+        $rute_2->get("Detail_tawaran/(:alphanum)","User\PenawaranC::Detail_tawaran/$1"); //ok
     });
     $rute->group("Data_user",function($rute_2){
-        $rute_2->get("Read_email","User\Data_userC::Read_email");
-        $rute_2->get("Read_ktp","User\Data_userC::Read_ktp");
+        $rute_2->get("Read_email","User\Data_userC::Read_email"); //ok
+        $rute_2->get("Read_ktp","User\Data_userC::Read_ktp"); //ok
     });
     $rute->post("Login","No_login\UserC::Login");
     $rute->post('Kirim_otp','No_login\UserC::Kirim_otp');

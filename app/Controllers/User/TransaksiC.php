@@ -85,27 +85,17 @@ class TransaksiC extends ResourceController
                 $awal_cicilan=date_format($awal_cicilan,"Y-m-d");
                 $detail_cicilan[count($detail_cicilan)-1]["cicilan"]=$detail_cicilan[count($detail_cicilan)-1]["cicilan"]+$kontainer_jumlah;
             }
-            // return $this->respond([
-            //     "tanggal pengembalian"=>$data_permohonan[0]->tanggal_pengembalian,
-            //     "tanggal pengajuan"=>$data_permohonan[0]->tanggal_pengajuan,
-            //     "tanggal awal peminjaman"=>$tanggal,
-            //     "selisih pengajuan dan pengembalian"=>$selisih->days,
-            //     "tanggal pengembalian sah"=>date_format($tanggal_pengembalian_sah,"Y-m-d"),
-            //     "Termin"=>$data_permohonan[0]->termin,
-            //     "Jumlah Pinjaman"=>$data_permohonan[0]->jumlah,
-            //     "jangka cicilan"=>$selisih->days/$data_permohonan[0]->termin,
-            //     "bayar per cicilan"=>$data_permohonan[0]->jumlah/$data_permohonan[0]->termin,
-            //     "detail cicilan"=>$detail_cicilan
-            // ],200);
                 $simpan=$this->transaksiM->create($data);
                 if($simpan){
                     for($i=0;$i<count($detail_cicilan);$i++){
                         $data_cicilan=[
                             $this->gr->ranstring(10),
                             $id_transaksi,
+                            $i+1,
                             "0000-00-00",
                             $detail_cicilan[$i]["tanggal"],
                             $detail_cicilan[$i]["cicilan"],
+                            "0",
                             "-",
                             "-",
                             "0"
@@ -117,7 +107,6 @@ class TransaksiC extends ResourceController
                     $bulan=$this->pdt->parse_month($tanggal->format("M"));
                     $waktu=$hari." ".$tanggal->format('d')." ".$bulan." ".$tanggal->format("Y")." ".$tanggal->format("H").":".$tanggal->format("i");
                 if((isset($_FILES['bukti_peminjaman']))&&($_FILES['bukti_peminjaman']['size']>0)){
-                //     move_uploaded_file($_FILES['bukti_peminjaman']['tmp_name'],"uploads/Bukti_peminjaman/".$nama_file);  
                 }
                     $borower=$this->userM->read($this->permohonanM->read_one([$this->request->getPost('id_permohonan')])[0]->ktp_borrower); 
                     $lender=$this->userM->read($this->permohonanM->read_one([$this->request->getPost('id_permohonan')])[0]->ktp_lender); 
@@ -125,12 +114,6 @@ class TransaksiC extends ResourceController
                     $this->se->subject="Informasi lanjutan mengenai peminjaman";
                     $this->se->body="Salam Bapak / Ibu, pada tanggal $waktu , saudara/i ".$lender[0]->nama." telah mengirimkan uang pinjaman ke rekening yang dituju, untuk selanjutnya anda bisa memeriksa bukti pinjaman di aplikasi utangin.com, terimakasih atas perhatiannya";
                     $kirim_email=$this->se->send();
-                    // if($kirim_email){
-                    //     return $this->respond(["pesan"=>"Transaksi berhasil"],200);
-                    // }
-                    // else{
-                    //     return $this->respond(["pesan"=>"Terjadi Kesalahan1"],502);
-                    // }
                     return $this->respond(["pesan"=>"Transaksi berhasil"],200);
                     
                 }
@@ -148,20 +131,80 @@ class TransaksiC extends ResourceController
     public function Jumlah_hutang_berjalan($d)
     {
         $data=$this->transaksiM->read_ktp_borrower($d);
+        $jumlah_saya_pinjam=$this->transaksiM->cek_ktp_lender($d);
         $jumlah_hutang=0;
+        $hutang_lunas=0;
         for($i=0;$i<count($data);$i++){
-            //$tgl_pengembalian=date_create($data[$i]->tanggal_pengembalian);
-            $tgl_pengembalian=strtotime($data[$i]->tanggal_pengembalian);
-            $tgl_hari_ini=strtotime(date('Y-m-d'));
-            if($tgl_hari_ini>$tgl_pengembalian){
-                $selisih_tanggal=date_diff(date_create($data[$i]->tanggal_pengembalian),date_create(date('Y-m-d')));
-                print_r($selisih_tanggal);
+            if($data[$i]->status==1){
+                $hutang_lunas+=1;
             }
-            $jumlah_hutang+=$data[$i]->jumlah;
-            echo $tgl_pengembalian;
+            else if($data[$i]->status==0){
+                $data_cicilan=$this->cicilanM->read_transaksi($data[$i]->id_transaksi);
+                $data_pinjaman=$this->permohonanM->read_one($data[$i]->id_permohonan)[0];
+                $denda=$data_pinjaman->denda;
+                for($j=0;$j<count($data_cicilan);$j++){
+                    $total_denda=0;
+                    $data_cicilan[$j]->denda=$denda*$data_cicilan[$j]->jml_angsuran;
+                    $data_cicilan[$j]->denda=(int)$data_cicilan[$j]->denda;
+                    $tanggal_sekarang=date('Y-m-d');
+                    $tanggal_batas=$data_cicilan[$j]->tanggal_batas;
+                    if(strtotime($tanggal_batas)<strtotime($tanggal_sekarang)){                    
+                        if($data_cicilan[$j]->status==0){                      
+                            $telat=date_diff(date_create($tanggal_sekarang),date_create($tanggal_batas));
+                            $total_denda=$data_cicilan[$j]->denda*$telat->days;  
+                            $data_cicilan[$j]->total_denda=$total_denda;                                                
+                        }
+                    }
+                    if($data_cicilan[$j]->status==0){  
+                        $jumlah_hutang+=$total_denda+$data_cicilan[$j]->jml_angsuran;
+                    }
+                }
+            }            
         }
-        //return $this->respond(["hutang_berjalan"=>$jumlah_hutang],200);
-        return $this->respond($data,200);
+        return $this->respond(["jumlah pinjaman saya"=>count($data),"Jumlah orang yang saya pinjam"=>$jumlah_saya_pinjam[0]->jumlah_data,"Hutang lunas"=>$hutang_lunas,"hutang_berjalan"=>$jumlah_hutang],200);
     }
+
+    public function Jumlah_piutang_berjalan($d)
+    {
+        $data=$this->transaksiM->read_ktp_lender($d);
+        $jumlah_saya_pinjam=$this->transaksiM->cek_ktp_lender($d);
+        $jumlah_hutang=0;
+        $hutang_lunas=0;
+        for($i=0;$i<count($data);$i++){
+            if($data[$i]->status==1){
+                $hutang_lunas+=1;
+            }
+            else if($data[$i]->status==0){
+                $data_cicilan=$this->cicilanM->read_transaksi($data[$i]->id_transaksi);
+                $data_pinjaman=$this->permohonanM->read_one($data[$i]->id_permohonan)[0];
+                $denda=$data_pinjaman->denda;
+                for($j=0;$j<count($data_cicilan);$j++){
+                    $total_denda=0;
+                    $data_cicilan[$j]->denda=$denda*$data_cicilan[$j]->jml_angsuran;
+                    $data_cicilan[$j]->denda=(int)$data_cicilan[$j]->denda;
+                    $tanggal_sekarang=date('Y-m-d');
+                    $tanggal_batas=$data_cicilan[$j]->tanggal_batas;
+                    if(strtotime($tanggal_batas)<strtotime($tanggal_sekarang)){                    
+                        if($data_cicilan[$j]->status==0){                      
+                            $telat=date_diff(date_create($tanggal_sekarang),date_create($tanggal_batas));
+                            $total_denda=$data_cicilan[$j]->denda*$telat->days;  
+                            $data_cicilan[$j]->total_denda=$total_denda;                                                
+                        }
+                    }
+                    if($data_cicilan[$j]->status==0){  
+                        $jumlah_hutang+=$total_denda+$data_cicilan[$j]->jml_angsuran;
+                    }
+                }
+            }            
+        }
+        $newData = [
+            "jumlah_pinjaman"=>count($data),
+            "jumlah_peminjam"=>$jumlah_saya_pinjam[0]->jumlah_data,
+            "pinjaman_lunas"=>$hutang_lunas,
+            "piutang_berjalan"=>$jumlah_hutang,
+        ];
+        return $this->respond($newData,200);
+    }
+
     
 }
